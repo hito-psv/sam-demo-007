@@ -1,0 +1,71 @@
+{
+  "StartAt": "hello world 1",
+  "States": {
+    "hello world 1": {
+      "Type": "Task",
+      "Resource": "${HelloWorldFunction}",
+      "Parameters": {
+        "p1.$": $.p1,
+        "p2.$": "$.p2",
+        "p3": {
+          "p3-1": 20,
+          "p3-2": "xyz"
+        },
+        "all.$": "$"
+      },
+      "ResultPath": "$.hello_world_result",
+      "OutputPath": "$",
+      "Next": "check state"
+    },
+    "retry lambda": {
+      "Type": "Task",
+      "Resource": "${HelloWorldFunction}",
+      "InputPath": "$",
+      "ResultPath": "$.hello_world_result",
+      "OutputPath": "$",
+      "Next": "check state"
+    },
+    "check state": {
+      "Type" : "Choice",
+      "Choices": [
+        {
+          "Variable": "$.hello_world_result.body.message",
+          "StringEquals": "hello world",
+          "Next": "hello world 2"
+        },
+        {
+          "Variable": "$.hello_world_result.body.message",
+          "StringEquals": "retry",
+          "Next": "wait state"
+        }
+      ],
+      "Default": "fail state"
+    },
+    "wait state": {
+      "Type": "Wait",
+      "Seconds": 5,
+      "Next": "retry lambda"
+    },
+    "hello world 2": {
+      "Type": "Task",
+      "Resource": "${HelloWorldFunction}",
+      "InputPath": "$",
+      "ResultPath": "$.hello_world_result",
+      "OutputPath": "$",
+      "Next": "send queue"
+    },
+    "send queue": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sqs:sendMessage",
+      "Parameters": {
+        "QueueUrl": "${SqsQueue}",
+        "MessageBody.$": "$"
+      },
+      "End": true
+    },
+    "fail state": {
+      "Type": "Fail",
+      "Cause": "No Matches!"
+    }
+  }
+}
